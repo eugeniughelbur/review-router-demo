@@ -1,0 +1,44 @@
+name: review routing
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  path-rule:
+    # The common approach: decide by file name alone.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Path rule
+        run: |
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "$files"
+          if echo "$files" | grep -Eq '(^|/)\.github/workflows/|migrations/|auth|login|token|secret|password|package\.json|requirements.*\.txt|Dockerfile'; then
+            route=full
+          else
+            route=quick
+          fi
+          echo "### Path rule: ${route} review" >> "$GITHUB_STEP_SUMMARY"
+          echo "Decided by file names only." >> "$GITHUB_STEP_SUMMARY"
+          echo "Path rule: $route"
+
+  review-router:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - id: router
+        uses: eugeniughelbur/jev-engineering/review-router@v1
+        with:
+          # This demo runs the free checks only, so no API key is stored here.
+          model: "false"
+          full-on-new-pr: "false"
+          base: ${{ github.event.pull_request.base.sha }}
+      - run: echo "review-router: ${{ steps.router.outputs.route }} (${{ steps.router.outputs.source }})"
